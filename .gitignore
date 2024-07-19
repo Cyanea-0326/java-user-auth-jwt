@@ -1,0 +1,8 @@
+
+boiler/keys/*
+.documents*
+.docker
+.vscode
+.http.test
+# .documents
+/boiler/.env

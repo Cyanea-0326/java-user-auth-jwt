@@ -1,0 +1,66 @@
+x-logging: &logging
+  logging:
+    driver: "json-file"
+    options:
+      max-file: "10"
+      max-size: "100m"
+
+services:
+  nginx:
+    build:
+      context: ./docker/nginx
+    container_name: ${PROJECT_NAME:-default}-nginx-container
+    restart: unless-stopped
+    ports:
+      - 3939:80
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    <<: *logging
+
+  workspace:
+    container_name: ${PROJECT_NAME:-default}-workspace-container
+    restart: unless-stopped
+    env_file: .env
+    build:
+      context: ./docker/workspace
+      args:
+        USERNAME: ${USERNAME:-vscode}
+        USER_GROUP_NAME: ${USER_GROUP_NAME:-workspace}
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+    tty: true
+    volumes:
+      - ./services:/home/${USERNAME:-vscode}/workspace:cached
+    working_dir: /home/${USERNAME:-vscode}/workspace
+    <<: *logging
+
+  user-api-psql:
+    image: postgres:16.2
+    container_name: ${PROJECT_NAME:-default}-user-db-container
+    env_file: .env
+    restart: unless-stopped
+    ports:
+      - ${DB_PORT:-5432}:5432
+    environment:
+      POSTGRES_ROOT_PASSWORD: ${USER_DB_ROOT_PASSWORD:-password}
+      POSTGRES_DB: ${USER_DB_NAME:-dev}
+      POSTGRES_USER: ${USER_DB_USER:-psql}
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD:-password}
+    volumes:
+      - ./.docker/user-api-psql-data:/var/lib/postgresql/data
+      - ./docker/database/:/docker-entrypoint-initdb.d
+    <<: *logging
+
+  # rabbitMQ:
+  #   image: rabbitmq:3.9.13-management-alpine
+  #   container_name: ${PROJECT_NAME:-default}-rabbitMQ-container
+  #   ports:
+  #     - 5672:5672
+  #     - 15672:15672
+  #   volumes:
+  #     - ./.docker/rabbitmqdata:/var/lib/rabbitmq
+  #     - ./.docker/rabbitmqlog:/var/log/rabbitmq
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-rabbitmq}
+  #     RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbitmq}
+  #   <<: *logging
